@@ -16,7 +16,7 @@
             background-color: #f8fafc;
         }
         #map {
-            height: 680px;
+            height: 750px;
             width: 100%;
             border-radius: 0.75rem;
             z-index: 10;
@@ -57,9 +57,9 @@
         }
     </style>
 </head>
-<body class="p-4 md:p-6 flex flex-col items-center min-h-screen text-slate-800">
+<body class="p-3 md:p-4 flex flex-col items-center min-h-screen text-slate-800 w-full">
 
-    <div class="w-full max-w-6xl bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-5">
+    <div class="w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-5 mb-4">
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
             <div>
                 <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
@@ -93,7 +93,7 @@
         <div id="successMessage" class="text-emerald-700 text-xs hidden p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg"></div>
     </div>
 
-    <div class="w-full max-w-6xl relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white">
+    <div class="w-full relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white">
         <!-- Map Canvas -->
         <div id="map"></div>
 
@@ -172,6 +172,17 @@
                         <div id="speedWarning" class="text-[10px] text-amber-600 mt-1.5 hidden italic">
                             * Kolom kecepatan (speed/sog) tidak terdeteksi.
                         </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Navigation Status Breakdown -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 space-y-1.5">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex justify-between items-center">
+                        <span>Detail Status Navigasi</span>
+                        <span id="statusCountBadge" class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full font-semibold">0 jenis</span>
+                    </div>
+                    <div id="statusListContainer" class="space-y-2 text-[11px] max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                        <div class="text-slate-400 italic text-[10px]">Belum ada data status</div>
                     </div>
                 </div>
 
@@ -267,7 +278,9 @@
         let allCoordinates = [];
         let allSpeeds = [];
         let allMmsi = [];
+        let allShipNames = [];
         let allStatuses = [];
+        let allDates = [];
         let currentAnimationIndex = 0;
         let animationInterval = null;
         let isAnimating = false;
@@ -381,13 +394,17 @@
                     let lngField = fields.find(f => f === 'lon' || f === 'lng' || f === 'longitude');
                     let speedField = fields.find(f => f === 'speed' || f === 'sog' || f === 'spd' || f === 'knots' || f === 'kecepatan');
                     let mmsiField = fields.find(f => f === 'mmsi');
+                    let shipNameField = fields.find(f => f === 'ship_name' || f === 'shipname' || f === 'vessel_name' || f === 'vesselname' || f === 'vessel' || f === 'name' || f === 'nama_kapal');
                     let statusField = fields.find(f => f === 'status' || f === 'nav_status' || f === 'navstat' || f === 'navigation_status');
+                    let dateField = fields.find(f => f === 'poll_dtm' || f === 'date' || f === 'time' || f === 'timestamp' || f === 'datetime' || f === 'dtm');
                     
                     if(!latField) latField = fields.find(f => f.includes('lat'));
                     if(!lngField) lngField = fields.find(f => f.includes('lon') || f.includes('lng'));
                     if(!speedField) speedField = fields.find(f => f.includes('speed') || f.includes('sog'));
                     if(!mmsiField) mmsiField = fields.find(f => f.includes('mmsi'));
+                    if(!shipNameField) shipNameField = fields.find(f => f.includes('ship') || f.includes('vessel') || f.includes('nama'));
                     if(!statusField) statusField = fields.find(f => f.includes('status'));
+                    if(!dateField) dateField = fields.find(f => f.includes('poll') || f.includes('dtm') || f.includes('date') || f.includes('time'));
 
                     if (!latField || !lngField) {
                         showError(`Kolom koordinat tidak ditemukan. Kolom yang terdeteksi: ${meta.fields.join(', ')}.`);
@@ -399,12 +416,16 @@
                     const actualLngField = meta.fields.find(f => f.toLowerCase().trim() === lngField);
                     const actualSpeedField = speedField ? meta.fields.find(f => f.toLowerCase().trim() === speedField) : null;
                     const actualMmsiField = mmsiField ? meta.fields.find(f => f.toLowerCase().trim() === mmsiField) : null;
+                    const actualShipNameField = shipNameField ? meta.fields.find(f => f.toLowerCase().trim() === shipNameField) : null;
                     const actualStatusField = statusField ? meta.fields.find(f => f.toLowerCase().trim() === statusField) : null;
+                    const actualDateField = dateField ? meta.fields.find(f => f.toLowerCase().trim() === dateField) : null;
 
                     const coordinates = [];
                     const speeds = [];
                     const mmsis = [];
+                    const shipNames = [];
                     const statuses = [];
+                    const dates = [];
                     const validSpeedsForSummary = [];
                     let invalidCount = 0;
 
@@ -428,7 +449,9 @@
                             }
                             
                             mmsis.push(actualMmsiField ? (row[actualMmsiField] || 'N/A') : 'N/A');
+                            shipNames.push(actualShipNameField ? (row[actualShipNameField] || 'N/A') : 'N/A');
                             statuses.push(actualStatusField ? (row[actualStatusField] || 'Unknown') : 'Unknown');
+                            dates.push(actualDateField ? (row[actualDateField] || 'N/A') : 'N/A');
                         } else {
                             invalidCount++;
                         }
@@ -449,8 +472,8 @@
                         );
                     }
 
-                    initAnimation(coordinates, speeds, mmsis, statuses);
-                    updateSummary(data.length, coordinates.length, coordinates[0], coordinates[coordinates.length-1], validSpeedsForSummary, totalDistance);
+                    initAnimation(coordinates, speeds, mmsis, shipNames, statuses, dates);
+                    updateSummary(data.length, coordinates.length, coordinates[0], coordinates[coordinates.length-1], validSpeedsForSummary, totalDistance, statuses);
                     
                     showSuccess(`Berhasil memuat ${coordinates.length} titik koordinat.`);
                     showLoading(false);
@@ -463,11 +486,13 @@
         }
 
         // --- STREAMING_CHUNK:Configuring track animation rendering and markers... ---
-        function initAnimation(coords, speedsArray, mmsis, statuses) {
+        function initAnimation(coords, speedsArray, mmsis, shipNames, statuses, datesArray) {
             allCoordinates = coords;
             allSpeeds = speedsArray || [];
             allMmsi = mmsis || [];
+            allShipNames = shipNames || [];
             allStatuses = statuses || [];
+            allDates = datesArray || [];
             currentAnimationIndex = 0;
             
             if (trackPolyline) map.removeLayer(trackPolyline);
@@ -524,12 +549,16 @@
             const lonStr = currentPos[1].toFixed(5);
             const spdStr = (allSpeeds && allSpeeds[index] !== null && allSpeeds[index] !== undefined) ? allSpeeds[index].toFixed(1) : '--';
             const mmsiStr = (allMmsi && allMmsi[index]) ? allMmsi[index] : 'N/A';
+            const shipNameStr = (allShipNames && allShipNames[index]) ? allShipNames[index] : 'N/A';
             const statusStr = (allStatuses && allStatuses[index]) ? allStatuses[index] : 'Unknown';
+            const dateStr = (allDates && allDates[index]) ? allDates[index] : 'N/A';
 
             const detailsLabelHtml = `
                 <div class="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm text-slate-800 p-2.5 rounded-lg shadow-lg border border-slate-200 text-[10px] font-mono whitespace-nowrap w-auto min-w-max z-[1000] pointer-events-none">
-                    <div class="font-bold text-blue-700 text-center border-b border-slate-100 pb-1 mb-1">MMSI: ${mmsiStr}</div>
+                    <div class="font-bold text-blue-700 text-center border-b border-slate-100 pb-1 mb-1">${shipNameStr}</div>
                     <div class="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-left">
+                        <span class="text-slate-400">MMSI:</span> <span class="font-medium text-slate-700">${mmsiStr}</span>
+                        <span class="text-slate-400">Date:</span> <span class="font-medium text-slate-700">${dateStr}</span>
                         <span class="text-slate-400">Lat:</span> <span class="font-medium text-slate-700">${latStr}</span>
                         <span class="text-slate-400">Lon:</span> <span class="font-medium text-slate-700">${lonStr}</span>
                         <span class="text-slate-400">Spd:</span> <span class="font-bold text-blue-600">${spdStr} kn</span>
@@ -632,7 +661,7 @@
             return R * c;
         }
 
-        function updateSummary(total, valid, start, end, speeds, totalDistance) {
+        function updateSummary(total, valid, start, end, speeds, totalDistance, statuses) {
             document.getElementById('summaryTotal').textContent = total.toLocaleString();
             document.getElementById('summaryValid').textContent = valid.toLocaleString();
             document.getElementById('summaryStart').textContent = `${start[0].toFixed(4)}, ${start[1].toFixed(4)}`;
@@ -662,6 +691,39 @@
                 speedMaxEl.textContent = '--';
                 speedAvgEl.textContent = '--';
                 speedWarning.classList.remove('hidden');
+            }
+
+            // --- Update Navigation Status Breakdown ---
+            const statusContainer = document.getElementById('statusListContainer');
+            const statusBadge = document.getElementById('statusCountBadge');
+
+            if (statuses && statuses.length > 0) {
+                const statusCounts = {};
+                statuses.forEach(s => {
+                    const st = (s !== null && s !== undefined && String(s).trim() !== '') ? String(s).trim() : 'Unknown';
+                    statusCounts[st] = (statusCounts[st] || 0) + 1;
+                });
+
+                const sortedStatuses = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+                statusBadge.textContent = `${sortedStatuses.length} jenis`;
+
+                statusContainer.innerHTML = sortedStatuses.map(([statusName, count]) => {
+                    const pct = ((count / valid) * 100).toFixed(1);
+                    return `
+                        <div class="space-y-0.5">
+                            <div class="flex justify-between items-center text-[10px]">
+                                <span class="font-medium text-slate-700 truncate max-w-[130px]" title="${statusName}">${statusName}</span>
+                                <span class="text-slate-500 font-mono"><strong class="text-slate-800">${count.toLocaleString()}</strong> (${pct}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-blue-600 h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                statusBadge.textContent = '0 jenis';
+                statusContainer.innerHTML = `<div class="text-slate-400 italic text-[10px]">Data status tidak tersedia</div>`;
             }
 
             // Reveal Overlay Panel on Map
